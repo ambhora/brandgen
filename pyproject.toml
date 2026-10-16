@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2026 brandgen developers
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "brandgen"
+dynamic = ["version"]
+description = "Generate every distribution variant of a brand's marks"
+readme = "readme.md"
+license = "Apache-2.0"
+license-files = ["LICENSES/*"]
+requires-python = ">=3.11"
+dependencies = [
+  "cairosvg>=2.7",
+  "fonttools>=4.47",
+  "lxml>=5",
+  "svgelements>=1.9",
+  "uharfbuzz>=0.39",
+]
+
+[project.scripts]
+brandgen = "brandgen.cli:main"
+
+[dependency-groups]
+dev = [
+  "pillow>=10",
+  "pytest>=8",
+  "ruff>=0.6",
+]
+
+[tool.hatch.version]
+path = "src/brandgen/metadata.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/brandgen"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 80
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "TID"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+# The synthetic brand used by the tests, imported from the tests directory.
+known-local-folder = ["sample"]

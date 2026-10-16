@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 brandgen developers
+#
+# SPDX-License-Identifier: Apache-2.0
+
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+dist/
+uv.lock

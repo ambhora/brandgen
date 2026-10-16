@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: 2026 brandgen developers
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Formatting, lint and licensing, independent of the Python version.
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Check formatting
+        run: uv run --only-group dev ruff format --check
+      - name: Lint
+        run: uv run --only-group dev ruff check
+      - name: Check REUSE compliance
+        run: uvx reuse lint
+
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      # cairosvg loads the system cairo library at run time.
+      - name: Install cairo
+        run: sudo apt-get update && sudo apt-get install --yes libcairo2
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run the test suite
+        run: uv run pytest
+      - name: Build the distributions
+        run: uv build
+      # Install the wheel on its own, away from the checkout, and run a
+      # complete build of a synthetic brand through the console script.
+      - name: Run the installed command line end to end
+        run: |
+          uv venv "$RUNNER_TEMP/wheel"
+          uv pip install --python "$RUNNER_TEMP/wheel" dist/*.whl
+          export PATH="$RUNNER_TEMP/wheel/bin:$PATH"
+          brandgen --version
+          python tests/sample.py "$RUNNER_TEMP/source"
+          brandgen build --input "$RUNNER_TEMP/source" \
+            --output "$RUNNER_TEMP/generated" --name ci --quiet
+          planned=$(brandgen plan --name ci 2>/dev/null | sort)
+          written=$(cd "$RUNNER_TEMP/generated" \
+            && find . -type f ! -name manifest.json | sed 's|^\./||' | sort)
+          listed=$(python -c 'import json, sys; print("\n".join(sorted(
+            f["path"] for f in json.load(open(sys.argv[1]))["files"])))' \
+            "$RUNNER_TEMP/generated/manifest.json")
+          test "$planned" = "$written"
+          test "$planned" = "$listed"
+          echo "$(echo "$planned" | wc -l) files planned, written and listed"
+      - name: Keep the generated variants
+        if: matrix.python == '3.13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-sample
+          path: ${{ runner.temp }}/generated
